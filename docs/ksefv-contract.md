@@ -39,13 +39,8 @@ Pozycje: `name`, `quantity` (`^\d{1,7}(\.\d{1,3})?$`, > 0), `netPrice` (`^\d{1,1
 Klient sprawdza lokalnie kopertę (identyfikatory, typy, limity, znaki), a reguły profilu
 pozostawia KSeFV, żeby nie utrzymywać ich w dwóch miejscach.
 
-## Rzeczy do poprawy po stronie KSeFV (znalezione przy pisaniu klienta)
+## Usterki i potrzeby po stronie KSeFV
 
-1. `ApiExceptionSubscriber` gubi nagłówki `HttpException` — `Retry-After: 3` z inboxu/issuera
-   nie dociera do klienta (klient przyjmuje wtedy domyślne 3 s).
-2. Wysyłka KSeF odpowiada 400 zarówno dla faktury już wysłanej, jak i nieobsługiwanej — klient
-   nie odróżni bezpiecznego powtórzenia od odmowy (zalecany 409 dla „już wysłana”).
-3. Status KSeF zwraca 500 dla faktury nigdy niewysłanej — nie da się odróżnić od awarii.
-4. Brak dostawy zdarzeń `invoice.issued.v1` (tabela `integration_order_events` bez konsumenta) —
-   integrator musi odpytywać.
-5. Brak profilu B2C (nabywca bez NIP) — faktury dla konsumentów zostają w systemie źródłowym.
+Kolejka prac dla agenta w KSeFV, z miejscami w kodzie, oczekiwanym zachowaniem i odbiorem:
+[`ksefv-requests.md`](ksefv-requests.md) (KSV-REQ-01…10). Po każdej zmianie w KSeFV aktualizuj
+oba pliki i testy klienta.

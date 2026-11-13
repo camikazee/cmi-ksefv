@@ -57,6 +57,7 @@ dane → 409. Nie twórz nowego `orderId` po błędzie — ponawiaj ten sam.
 
 ## Ograniczenia profilu KSeFV (stan 2026-11-13)
 
-Szczegóły: [`docs/ksefv-contract.md`](docs/ksefv-contract.md). Najważniejsze: tylko faktura
+Szczegóły: [`docs/ksefv-contract.md`](docs/ksefv-contract.md). Usterki i brakujące elementy po stronie
+KSeFV — kolejka dla agenta w KSeFV: [`docs/ksefv-requests.md`](docs/ksefv-requests.md). Najważniejsze: tylko faktura
 `regular` w PLN dla nabywcy z polskim NIP (bez B2C), stawki 23/8/5/0, bez rabatów i korekt;
 `paymentMethodCode` to id ze słownika metod płatności firmy w KSeFV.
