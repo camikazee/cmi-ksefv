@@ -1,0 +1,24 @@
+{
+    "name": "cmi/ksefv",
+    "description": "Client of the KSeFV integration API: submit an order, issue its invoice, send it to KSeF, read its status and PDF",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "symfony/http-client-contracts": "^3.5"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0",
+        "symfony/http-client": "^7.2"
+    },
+    "autoload": {
+        "psr-4": { "Cmi\\Ksefv\\": "src/" }
+    },
+    "autoload-dev": {
+        "psr-4": { "Cmi\\Ksefv\\Tests\\": "tests/" }
+    },
+    "config": { "sort-packages": true },
+    "extra": { "branch-alias": { "dev-main": "0.1.x-dev" } },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

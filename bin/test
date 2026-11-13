@@ -1,0 +1,12 @@
+#!/bin/sh
+# Local test runner. Usage: bin/test [phpunit --filter value]
+# Mounting the working copy is fine on a workstation; Jenkins builds an image instead.
+set -eu
+cd "$(dirname "$0")/.."
+IMAGE=composer:2.11.1@sha256:3d1eb9437516b0ba88c46a0bb05826451a1ab178d29adacb5ded26dad0899ae4
+RUN="docker run --rm -u $(id -u):$(id -g) -e HOME=/tmp -e COMPOSER_HOME=/tmp/composer -v $PWD:/app -w /app $IMAGE"
+[ -d vendor ] || $RUN composer install --no-interaction --prefer-dist --no-progress >/dev/null
+if [ $# -gt 0 ]; then
+  exec $RUN vendor/bin/phpunit --filter "$1"
+fi
+exec $RUN vendor/bin/phpunit
