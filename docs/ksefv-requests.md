@@ -18,11 +18,23 @@ Zasady dla obu stron:
 
 Statusy: **open** · **in progress** · **done (data, commit)** · **rejected (powód)**.
 
+## Odbiór lokalny2026-11-14 — bez commitów i wdrożenia
+
+01–03/06–07 mają implementację i testy backendu oraz klienta. Backend bazowy
+2340f2e + dirty, pełny gate1668/18596 i671criticalPASS, audit0. Klient39/103PASS,
+wyłącznie atrapy HTTP. Zmiany nie są na produkcji ani w wydanej wersji biblioteki.
+Klient sprawdzony naPHP8.3.36 i8.5.12 z tymi samymi zależnościami.
+Opisy „dziś/gdzie” w poszczególnych zgłoszeniach zachowują stan bazowy13listopada;
+bieżący wynik to ten odbiór lokalny oraz zaktualizowany ksefv-contract.md.
+08 ma runbook w KSeFV/docs/integration-client-contract.md, lecz firma/klucz/MF TEST
+nadal wymagają autoryzowanego odbioru.04/09/10 pozostają open;05 odłożone decyzją
+właściciela: na razie wyłącznie profil firmowy. Historia szczegółowa poniżej.
+
 ---
 
 ## A. Usterki kontraktu znalezione przy pisaniu klienta
 
-### KSV-REQ-01 — `Retry-After` ginie w odpowiedziach problem+json — **open**
+### KSV-REQ-01 — `Retry-After` ginie w odpowiedziach problem+json — **in progress (lokalnie zweryfikowane2026-11-14, commit pending)**
 
 - **Gdzie:** `src/Shared/EventSubscriber/ApiExceptionSubscriber.php` (rejestracja
   `config/services.yaml:324`) buduje odpowiedź z kodu i treści wyjątku, ale ignoruje
@@ -38,7 +50,7 @@ Statusy: **open** · **in progress** · **done (data, commit)** · **rejected (p
 - **Po stronie `cmi/ksefv`:** bez zmian w kodzie (już czyta nagłówek); usunąć adnotację o
   zgubionym nagłówku z README i `ksefv-contract.md`.
 
-### KSV-REQ-02 — „już wysłana do KSeF” nieodróżnialna od „nieobsługiwana” — **open**
+### KSV-REQ-02 — „już wysłana do KSeF” nieodróżnialna od „nieobsługiwana” — **in progress (lokalnie zweryfikowane2026-11-14, commit pending)**
 
 - **Gdzie:** `src/Ksef/Controller/KsefController.php:44` (faktura ma `ksefNumber` /
   `ksefReferenceNumber` / `ksefSessionReference` albo status `processing|sent`) i `:58`
@@ -54,7 +66,7 @@ Statusy: **open** · **in progress** · **done (data, commit)** · **rejected (p
 - **Po stronie `cmi/ksefv`:** `sendToKsef()` zwraca sukces (lub osobny wynik „już wysłana”)
   dla 409/`already_submitted` zamiast odmowy; test w `KsefvClientTest`.
 
-### KSV-REQ-03 — status KSeF faktury nigdy niewysłanej to 500 — **open**
+### KSV-REQ-03 — status KSeF faktury nigdy niewysłanej to 500 — **in progress (lokalnie zweryfikowane2026-11-14, commit pending)**
 
 - **Gdzie:** `src/Ksef/Controller/KsefController.php:98` + `src/Ksef/Service/KsefUpoService.php`
   — brak referencji sesji kończy się wyjątkiem i `500 {"error": "Nie udało się sprawdzić statusu."}`.
@@ -81,7 +93,7 @@ Statusy: **open** · **in progress** · **done (data, commit)** · **rejected (p
 - **Po stronie `cmi/ksefv`:** weryfikacja podpisu webhooka i parser zdarzeń (albo odczyt listy
   zmian); do tego czasu Todoly odpytuje jobem.
 
-### KSV-REQ-05 — brak profilu B2C (nabywca bez NIP) — **open, niski priorytet**
+### KSV-REQ-05 — brak profilu B2C (nabywca bez NIP) — **rejected (odłożone przez właściciela: zostaje profil firmowy,2026-11-13)**
 
 - **Gdzie:** `src/Integration/Order/OrderInvoiceMapper.php:21-28` (NIP 10 cyfr, `PL`,
   `regular`) i `src/Invoice/Service/KsefInvoiceService.php:132-135` (wysyłka KSeF wymaga NIP).
@@ -94,7 +106,7 @@ Statusy: **open** · **in progress** · **done (data, commit)** · **rejected (p
 
 ## B. Potrzeby integratora (Todoly) — brakujące elementy
 
-### KSV-REQ-06 — sprawdzenie klucza i zakresów bez skutków — **open**
+### KSV-REQ-06 — sprawdzenie klucza i zakresów bez skutków — **in progress (lokalnie zweryfikowane2026-11-14, commit pending)**
 
 - **Potrzeba:** przy konfiguracji integracji (panel Todoly, readiness przed wydaniem) trzeba
   sprawdzić, czy adres i klucz działają oraz czy klucz ma `invoices.write`, `invoices.read`,
@@ -106,7 +118,7 @@ Statusy: **open** · **in progress** · **done (data, commit)** · **rejected (p
   — bez sekretów, bez danych osobowych poza firmą klucza.
 - **Po stronie `cmi/ksefv`:** `KsefvClient::testConnection()` zwracające brakujące zakresy.
 
-### KSV-REQ-07 — słownik metod płatności dla klucza API — **open (do potwierdzenia)**
+### KSV-REQ-07 — słownik metod płatności dla klucza API — **in progress (potwierdzono stary słownik i nowy alias, lokalnie2026-11-14)**
 
 - **Potrzeba:** `paymentMethodCode` to id z `DicPaymentMethod` firmy (`IntegrationOrderIssuer.php:83`),
   a nie kod KSeF. Todoly musi znać id metody „PayU” (lub „płatność elektroniczna”) w firmie
@@ -150,5 +162,9 @@ Statusy: **open** · **in progress** · **done (data, commit)** · **rejected (p
 ---
 
 ## Historia
+
+- 2026-11-14 — lokalnie zsynchronizowano backend i parsery/testy klienta01–03/06–07;
+  runbook08 gotowy bez MF. Wysyłka nadal nie ma Idempotency-Key; nie mylić
+  already_submitted z idempotentnym replay202. Bez commit/push/publikacji.
 
 - 2026-11-13 — utworzono (KSV-REQ-01…10) przy `cmi/ksefv` 0.1.0.

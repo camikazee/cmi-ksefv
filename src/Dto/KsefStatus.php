@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Cmi\Ksefv\Dto;
 
 /**
- * What KSeF said about an invoice sent through KSeFV (`GET /api/ksef/invoice/{id}/status`).
+ * Local/MF status returned by KSeFV (`GET /api/ksef/invoice/{id}/status`).
+ * not_submitted and processing may have no MF processing code (null).
  *
  * Only `accepted` with a KSeF number means the Ministry's system took the invoice. `processing`
  * includes a duplicate under review (`requiresReview`). Reading the status also updates the
@@ -16,10 +17,11 @@ final readonly class KsefStatus
     public const string ACCEPTED = 'accepted';
     public const string REJECTED = 'rejected';
     public const string PROCESSING = 'processing';
+    public const string NOT_SUBMITTED = 'not_submitted';
 
     public function __construct(
         public string $outcome,
-        public int $processingStatus,
+        public ?int $processingStatus,
         public ?string $description,
         public ?string $ksefNumber,
         public ?string $acquisitionDate,
@@ -35,5 +37,10 @@ final readonly class KsefStatus
     public function isRejected(): bool
     {
         return self::REJECTED === $this->outcome;
+    }
+
+    public function isNotSubmitted(): bool
+    {
+        return self::NOT_SUBMITTED === $this->outcome;
     }
 }

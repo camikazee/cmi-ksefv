@@ -171,6 +171,97 @@ final class KsefvClientTest extends TestCase
         }
     }
 
+    public function testConnectionReportsConfigurationWithoutIssuingAnything(): void
+    {
+        $client = $this->client(new MockResponse('{"company":{"nip":"5260250274","name":"Fixture"},"scopes":["invoices.read"],"apiPlanActive":false,"integrationOrders":{"enabled":true,"issueEnabled":false}}'));
+        $state = $client->testConnection(Fixtures::connection());
+        self::assertSame('5260250274', $state->companyNip);
+        self::assertFalse($state->apiPlanActive);
+        self::assertFalse($state->isReady());
+        self::assertContains('ksef.send', $state->missingScopes());
+        self::assertNotContains('invoices.read', $state->missingScopes());
+        self::assertSame('GET', $this->sent[0]['method']);
+        self::assertSame('https://api.ksefv.example/api/integrations/whoami', $this->sent[0]['url']);
+        self::assertCount(1, $this->sent);
+    }
+
+    public function testPaymentMethodsPreserveDictionaryIdsRatherThanKsefCodes(): void
+    {
+        $client = $this->client(new MockResponse('{"items":[{"id":13,"name":"Przelew","ksefCode":"6","requiresBankAccount":true}]}'));
+        $methods = $client->paymentMethods(Fixtures::connection());
+        self::assertCount(1, $methods);
+        self::assertSame([13, '6', true], [$methods[0]->id, $methods[0]->ksefCode, $methods[0]->requiresBankAccount]);
+        self::assertSame('https://api.ksefv.example/api/dictionaries/payment-methods', $this->sent[0]['url']);
+    }
+
+    public function testConfigurationParsersDoNotCoerceMalformedAnswers(): void
+    {
+        $client = $this->client(new MockResponse('{"company":{},"scopes":[],"apiPlanActive":"false","integrationOrders":{"enabled":true,"issueEnabled":true}}'),
+            new MockResponse('{"items":[{"id":"13","name":"Fixture","ksefCode":"6","requiresBankAccount":true}]}'));
+        self::assertTrue($this->failure(static fn () => $client->testConnection(Fixtures::connection()))->isUncertain());
+        self::assertTrue($this->failure(static fn () => $client->paymentMethods(Fixtures::connection()))->isUncertain());
+    }
+
+    public function testUnsentAndUncertainStatusesCanHaveNoMfProcessingCode(): void
+    {
+        $client = $this->client(new MockResponse('{"outcome":"not_submitted","processingStatus":null,"ksefNumber":null,"requiresReview":false}'),
+            new MockResponse('{"outcome":"processing","processingStatus":null,"ksefNumber":null,"requiresReview":true}'),
+            new MockResponse('{"outcome":"accepted","processingStatus":null,"ksefNumber":"fixture"}'));
+        $unsent = $client->ksefStatus(Fixtures::connection(), Fixtures::INVOICE);
+        self::assertTrue($unsent->isNotSubmitted()); self::assertNull($unsent->processingStatus);
+        self::assertFalse($unsent->isAccepted());
+        $pending = $client->ksefStatus(Fixtures::connection(), Fixtures::INVOICE);
+        self::assertTrue($pending->requiresReview); self::assertFalse($pending->isNotSubmitted());
+        self::assertTrue($this->failure(static fn () => $client->ksefStatus(Fixtures::connection(), Fixtures::INVOICE))->isUncertain());
+    }
+
+    public function testSendDistinguishesQueuedAlreadySubmittedAndUnsupported(): void
+    {
+        $client = $this->client(new MockResponse('{"message":"Queued"}', ['http_code'=>202]),
+            new MockResponse('{"code":"already_submitted","outcome":"processing","requiresReview":true}', ['http_code'=>400]),
+            new MockResponse('{"code":"already_submitted","outcome":"accepted","requiresReview":false}', ['http_code'=>400]),
+            new MockResponse('{"code":"unsupported","error":"Unsupported"}', ['http_code'=>400]),
+            new MockResponse('{"code":"already_submitted","outcome":"mystery"}', ['http_code'=>400]));
+        $queued = $client->sendToKsef(Fixtures::connection(), Fixtures::INVOICE);
+        self::assertSame('queued', $queued->outcome); self::assertFalse($queued->alreadySubmitted);
+        $pending = $client->sendToKsef(Fixtures::connection(), Fixtures::INVOICE);
+        self::assertSame('processing', $pending->outcome); self::assertTrue($pending->alreadySubmitted); self::assertTrue($pending->requiresReview);
+        self::assertSame('accepted', $client->sendToKsef(Fixtures::connection(), Fixtures::INVOICE)->outcome);
+        self::assertTrue($this->failure(static fn () => $client->sendToKsef(Fixtures::connection(), Fixtures::INVOICE))->isRefused());
+        self::assertTrue($this->failure(static fn () => $client->sendToKsef(Fixtures::connection(), Fixtures::INVOICE))->isUncertain());
+    }
+
+    public function testStableServerCodeAndRetryKindAreAvailableWithoutParsingMessages(): void
+    {
+        $client = $this->client(new MockResponse('{"code":"unsupported","error":"Unsupported fixture"}', ['http_code'=>400]),
+            new MockResponse('{"code":"ksef_status_unavailable"}', ['http_code'=>503, 'response_headers'=>['Retry-After'=>'7']]),
+            new MockResponse('{"code":"not a stable code"}', ['http_code'=>403]));
+        $failure = $this->failure(static fn () => $client->sendToKsef(Fixtures::connection(), Fixtures::INVOICE));
+        self::assertSame('unsupported', $failure->serverCode); self::assertTrue($failure->isRefused());
+        $failure = $this->failure(static fn () => $client->ksefStatus(Fixtures::connection(), Fixtures::INVOICE));
+        self::assertSame('ksef_status_unavailable', $failure->serverCode); self::assertTrue($failure->isRetryLater());
+        self::assertSame(7, $failure->retryAfterSeconds);
+        self::assertNull($this->failure(static fn () => $client->ksefStatus(Fixtures::connection(), Fixtures::INVOICE))->serverCode);
+    }
+
+    public function testStatusRequestCanBeBoundedByTheRemainingPollingBudget(): void
+    {
+        $client = $this->client(new MockResponse('{"outcome":"processing","processingStatus":100}'), new MockResponse('{"outcome":"processing","processingStatus":100}'));
+        $client->ksefStatus(Fixtures::connection(), Fixtures::INVOICE, maxDurationSeconds:2.5);
+        self::assertSame(2.5, $this->sent[0]['options']['timeout']); self::assertSame(2.5, $this->sent[0]['options']['max_duration']);
+        $client->ksefStatus(Fixtures::connection(), Fixtures::INVOICE, maxDurationSeconds:60);
+        self::assertSame(15.0, $this->sent[1]['options']['timeout']); self::assertSame(30.0, $this->sent[1]['options']['max_duration']);
+    }
+
+    public function testInvalidRequestBudgetsNeverReachTheNetwork(): void
+    {
+        $client = $this->client();
+        foreach ([0.0, -1.0, INF, NAN] as $budget) {
+            try { $client->ksefStatus(Fixtures::connection(), Fixtures::INVOICE, maxDurationSeconds:$budget); self::fail('Invalid budget accepted.'); }
+            catch (\InvalidArgumentException) { self::assertSame([], $this->sent); }
+        }
+    }
+
     private function client(MockResponse|\Closure ...$answers): KsefvClient
     {
         return new KsefvClient(new MockHttpClient(function (string $method, string $url, array $options) use (&$answers): MockResponse {
