@@ -34,7 +34,7 @@ właściciela: na razie wyłącznie profil firmowy. Historia szczegółowa poni�
 
 ## A. Usterki kontraktu znalezione przy pisaniu klienta
 
-### KSV-REQ-01 — `Retry-After` ginie w odpowiedziach problem+json — **in progress (lokalnie zweryfikowane2026-11-14, commit pending)**
+### KSV-REQ-01 — `Retry-After` ginie w odpowiedziach problem+json — **done (2026-11-15, KSeFV `0b6796c` na `master`; wdrożenie produkcyjne do potwierdzenia)**
 
 - **Gdzie:** `src/Shared/EventSubscriber/ApiExceptionSubscriber.php` (rejestracja
   `config/services.yaml:324`) buduje odpowiedź z kodu i treści wyjątku, ale ignoruje
@@ -50,7 +50,7 @@ właściciela: na razie wyłącznie profil firmowy. Historia szczegółowa poni�
 - **Po stronie `cmi/ksefv`:** bez zmian w kodzie (już czyta nagłówek); usunąć adnotację o
   zgubionym nagłówku z README i `ksefv-contract.md`.
 
-### KSV-REQ-02 — „już wysłana do KSeF” nieodróżnialna od „nieobsługiwana” — **in progress (lokalnie zweryfikowane2026-11-14, commit pending)**
+### KSV-REQ-02 — „już wysłana do KSeF” nieodróżnialna od „nieobsługiwana” — **done (2026-11-15, KSeFV `0b6796c` na `master`; wdrożenie produkcyjne do potwierdzenia)**
 
 - **Gdzie:** `src/Ksef/Controller/KsefController.php:44` (faktura ma `ksefNumber` /
   `ksefReferenceNumber` / `ksefSessionReference` albo status `processing|sent`) i `:58`
@@ -66,7 +66,7 @@ właściciela: na razie wyłącznie profil firmowy. Historia szczegółowa poni�
 - **Po stronie `cmi/ksefv`:** `sendToKsef()` zwraca sukces (lub osobny wynik „już wysłana”)
   dla 409/`already_submitted` zamiast odmowy; test w `KsefvClientTest`.
 
-### KSV-REQ-03 — status KSeF faktury nigdy niewysłanej to 500 — **in progress (lokalnie zweryfikowane2026-11-14, commit pending)**
+### KSV-REQ-03 — status KSeF faktury nigdy niewysłanej to 500 — **done (2026-11-15, KSeFV `0b6796c` na `master`; wdrożenie produkcyjne do potwierdzenia)**
 
 - **Gdzie:** `src/Ksef/Controller/KsefController.php:98` + `src/Ksef/Service/KsefUpoService.php`
   — brak referencji sesji kończy się wyjątkiem i `500 {"error": "Nie udało się sprawdzić statusu."}`.
@@ -106,7 +106,7 @@ właściciela: na razie wyłącznie profil firmowy. Historia szczegółowa poni�
 
 ## B. Potrzeby integratora (Todoly) — brakujące elementy
 
-### KSV-REQ-06 — sprawdzenie klucza i zakresów bez skutków — **in progress (lokalnie zweryfikowane2026-11-14, commit pending)**
+### KSV-REQ-06 — sprawdzenie klucza i zakresów bez skutków — **done (2026-11-15, KSeFV `0b6796c` na `master`; wdrożenie produkcyjne do potwierdzenia)**
 
 - **Potrzeba:** przy konfiguracji integracji (panel Todoly, readiness przed wydaniem) trzeba
   sprawdzić, czy adres i klucz działają oraz czy klucz ma `invoices.write`, `invoices.read`,
@@ -118,7 +118,7 @@ właściciela: na razie wyłącznie profil firmowy. Historia szczegółowa poni�
   — bez sekretów, bez danych osobowych poza firmą klucza.
 - **Po stronie `cmi/ksefv`:** `KsefvClient::testConnection()` zwracające brakujące zakresy.
 
-### KSV-REQ-07 — słownik metod płatności dla klucza API — **in progress (potwierdzono stary słownik i nowy alias, lokalnie2026-11-14)**
+### KSV-REQ-07 — słownik metod płatności dla klucza API — **done (2026-11-15, KSeFV `0b6796c` na `master`; wdrożenie produkcyjne do potwierdzenia)**
 
 - **Potrzeba:** `paymentMethodCode` to id z `DicPaymentMethod` firmy (`IntegrationOrderIssuer.php:83`),
   a nie kod KSeF. Todoly musi znać id metody „PayU” (lub „płatność elektroniczna”) w firmie
@@ -162,6 +162,10 @@ właściciela: na razie wyłącznie profil firmowy. Historia szczegółowa poni�
 ---
 
 ## Historia
+
+- 2026-11-15 — KSeFV `0b6796c` („complete client contract and add safe request history”)
+  wypchnięty na `master`: 01–03, 06, 07 zamknięte w kodzie. Produkcja KSeFV — dopiero po wdrożeniu
+  tego commita; do tego czasu `testConnection`/`paymentMethods` na produkcji zwrócą 404.
 
 - 2026-11-14 — lokalnie zsynchronizowano backend i parsery/testy klienta01–03/06–07;
   runbook08 gotowy bez MF. Wysyłka nadal nie ma Idempotency-Key; nie mylić

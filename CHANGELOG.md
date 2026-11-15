@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased — 2026-11-14
+## 0.2.0 — 2026-11-15
+
+Wymaga KSeFV z commitem `0b6796c` (whoami, słownik metod płatności, kody
+`already_submitted`/`not_submitted`). Zmiana API względem 0.1.0: `sendToKsef()` zwraca
+`KsefSendResult`, `KsefStatus::$processingStatus` może być `null`.
+
 
 - Opcjonalny logger PSR-3, zależność psr/log^3.0; metadane start/HTTP/wynik/błąd,
   requestId i serverRequestId, bez treści faktur, kluczy i wyjątków. Stan
