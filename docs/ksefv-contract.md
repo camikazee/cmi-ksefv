@@ -12,6 +12,15 @@ odbioru staging/MF TEST. Kanoniczny opis produktu i runbook: w workspace KSeFV
 
 ## Uwierzytelnienie
 
+Lokalne rozszerzenie REQ09 (2026-11-15, bez wdrożenia): whoami dodaje
+`capabilities.ksefSendIdempotency` po sprawdzeniu obecności tabeli komend.
+SDK domyślnie false dla starego backendu. Z Idempotency-Key (ASCII16–128)
+send zapisuje trwałą komendę i daje202 `{idempotent:true,outcome:queued,submissionId}`;
+replay tej samej firmy/faktury/klucza ma to samo body i Idempotency-Replayed:true.
+Ten sam klucz dla innej faktury lub inny klucz dla tej samej faktury409.
+Wykonanie przez scheduler; niepewny wynik wymaga review. Brak header zachowuje
+legacy. Ta część wymaga nowej migracji/kodu i pełnego gate;0b6796c jej nie zawiera.
+
 - Nagłówek `X-API-Key: ksv_live_<12 znaków id><40 znaków sekretu>` (`src/ApiKey/Security/ApiKeyAuthenticator.php`).
 - 401 `{"error"}` — zły lub odwołany klucz; 403 `{"error"}` — brak planu API, brak zakresu,
   endpoint niedostępny dla kluczy; 429 `{"error"}` + `Retry-After` — 120 żądań/min na klucz.

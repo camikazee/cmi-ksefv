@@ -142,7 +142,15 @@ właściciela: na razie wyłącznie profil firmowy. Historia szczegółowa poni�
   PDF i UPO, powtórka przyjęcia i wystawienia (`replayed`), konflikt danych (409); wynik
   dopisany do `CHANGELOG.md` biblioteki jako dowód odbioru.
 
-### KSV-REQ-09 — wysyłka KSeF z kluczem idempotencji — **open, opcjonalne**
+### KSV-REQ-09 — wysyłka KSeF z kluczem idempotencji — **in progress (2026-11-15, kod lokalny; pełny gate i wdrożenie niezaliczone)**
+
+- Lokalna implementacja: trwała komenda keyed send,202 po commit i replay
+  tego samego submissionId. Capability w whoami przed pierwszą próbą. Osobny
+  scheduler, checkpoint/no-blind-retry; migracja20261115090000 wymagana.
+- Backend targeted33/195PASS na PG/kernel, SDK85/279PASS PHP8.5.12; pełny gate
+  nadal pending. To nie zmiana dostępna na produkcji;04/10 nadal open.
+- REQ08: właściciel wycofał informację o stagingu — istnieje tylko prod.
+  Zgoda dotyczy postawienia osobnego lokalnego stacka, nie używania produkcji.
 
 - **Potrzeba:** bezpieczne ponowienie `POST /api/ksef/invoice/{id}/send` po timeoucie bez
   odpytywania statusu.

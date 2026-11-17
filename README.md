@@ -29,6 +29,23 @@ HTTP Idempotency-Key oraz korekty zamówień nie są dodane w tym etapie.
 
 ## Przebieg
 
+### Trwałe zlecenie wysyłki — REQ09, lokalna implementacja w toku
+
+Nowy opcjonalny argument `sendToKsef($connection, $invoiceId, idempotencyKey: $savedKey)`
+wysyła Idempotency-Key. Zapisz losowy klucz w aplikacji PRZED pierwszą próbą
+i ponawiaj tylko tę samą firmę/fakturę/klucz, nie nowy token po timeoucie.
+Przed pierwszą próbą wymagaj `testConnection(...)->ksefSendIdempotency === true`.
+Stary serwer bez capability daje false; samo przesłanie nagłówka nie potwierdza
+wsparcia. SDK z kluczem wymaga jawnego idempotent:true i UUID submissionId na202,
+inaczej rzuca uncertain. Nie ma automatycznego send/retry w bibliotece.
+
+Nowy backend zapisuje komendę i dopiero po commit odpowiada202; scheduler wykonuje
+ją osobno z zachowaniem checkpointów transmisji. Ten sam klucz odczytuje pierwotny
+submissionId; DTO ma opcjonalne submissionId/replayed. Kolejka nie oznacza MF accepted.
+Bez nagłówka pozostaje stary kontrakt. Wymagana nowa migracja i działający scheduler
+KSeFV, NIE sam backend0b6796c. Nie ma potwierdzenia wydania/produkcji tego etapu.
+Instrukcja produktu: w workspace KSeFV `docs/integration-send-idempotency.md`.
+
 ### Logowanie integracji (opcjonalne)
 
 Przekaż logger PSR-3: `new KsefvClient($http, logger: $integrationLogger)`.

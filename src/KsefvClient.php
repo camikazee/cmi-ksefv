@@ -65,7 +65,8 @@ final class KsefvClient
             }
         }
         return new ConnectionReadiness($company['nip'], $company['name'], array_values(array_unique($scopes)),
-            $data['apiPlanActive'], $flags['enabled'], $flags['issueEnabled']);
+            $data['apiPlanActive'], $flags['enabled'], $flags['issueEnabled'],
+            ($data['capabilities']['ksefSendIdempotency']??null)===true);
     }
 
     /** @return list<PaymentMethod> Actual dictionary IDs; never guessed provider codes. */
@@ -122,15 +123,22 @@ final class KsefvClient
      * 202 means queued, not accepted by KSeF. Only the explicit already_submitted code
      * is returned as an existing submission; unsupported or generic400 remains a refusal.
      */
-    public function sendToKsef(KsefvConnection $connection, string $invoiceId): KsefSendResult
+    public function sendToKsef(KsefvConnection $connection, string $invoiceId, ?string $idempotencyKey = null): KsefSendResult
     {
         if (null !== $this->logger) return $this->observe(__FUNCTION__, func_get_args());
-        $response = $this->send($connection, 'POST', '/api/ksef/invoice/'.self::id($invoiceId).'/send', 'application/json', null);
+        if ($idempotencyKey !== null && !preg_match('/^[A-Za-z0-9._:-]{16,128}$/D',$idempotencyKey)) throw new \InvalidArgumentException('Nieprawidłowy format klucza idempotencji.');
+        $response = $this->send($connection, 'POST', '/api/ksef/invoice/'.self::id($invoiceId).'/send', 'application/json', null,
+            extraHeaders:$idempotencyKey===null?[]:['Idempotency-Key'=>$idempotencyKey]);
         [$status, $content] = $this->read($response);
         $data = json_decode($content, true);
         if (202 === $status) {
             if (!is_array($data)) throw KsefvException::uncertain('Nieczytelne potwierdzenie kolejki KSeFV.', $status);
-            return new KsefSendResult('queued', false, false);
+            $submissionId = is_string($data['submissionId']??null) && preg_match(self::UUID,$data['submissionId']) ? strtolower($data['submissionId']) : null;
+            if ($idempotencyKey !== null && (($data['idempotent']??null)!==true || ($data['outcome']??null)!=='queued' || $submissionId===null)) {
+                throw KsefvException::uncertain('Serwer nie potwierdził trwałej idempotencji zlecenia. Nie ponawiaj wysyłki w ciemno.', $status);
+            }
+            $replayed = ($response->getHeaders(false)['idempotency-replayed'][0]??null)==='true';
+            return new KsefSendResult('queued', false, false, $submissionId, $replayed);
         }
         if (400 === $status && is_array($data) && 'already_submitted' === ($data['code'] ?? null)) {
             if (!in_array($data['outcome'] ?? null, ['accepted', 'processing'], true) || !is_bool($data['requiresReview'] ?? null)) {
@@ -241,12 +249,12 @@ final class KsefvClient
         return $content;
     }
 
-    private function send(KsefvConnection $connection, string $method, string $path, string $accept, ?string $body, ?float $maxDurationSeconds = null): ResponseInterface
+    private function send(KsefvConnection $connection, string $method, string $path, string $accept, ?string $body, ?float $maxDurationSeconds = null, array $extraHeaders = []): ResponseInterface
     {
         if (null !== $maxDurationSeconds && (!is_finite($maxDurationSeconds) || $maxDurationSeconds <= 0)) {
             throw new \InvalidArgumentException('Budżet żądania musi być dodatnią, skończoną liczbą sekund.');
         }
-        $headers = ['X-API-Key' => $connection->apiKey, 'Accept' => $accept];
+        $headers = ['X-API-Key' => $connection->apiKey, 'Accept' => $accept] + $extraHeaders;
         $options = ['headers' => $headers, 'timeout' => 15, 'max_duration' => 30, 'max_redirects' => 0];
         if (null !== $maxDurationSeconds) {
             $options['timeout'] = min(15.0, $maxDurationSeconds);
@@ -357,7 +365,7 @@ final class KsefvClient
             $result = $inner->{$method}(...$arguments);
             $context = $base + $transport->metadata() + ['durationMs'=>max(0,(int)round((hrtime(true)-$started)/1_000_000))];
             $context += match (true) {
-                $result instanceof KsefSendResult => ['outcome'=>$result->outcome,'alreadySubmitted'=>$result->alreadySubmitted,'requiresReview'=>$result->requiresReview],
+                $result instanceof KsefSendResult => ['outcome'=>$result->outcome,'alreadySubmitted'=>$result->alreadySubmitted,'requiresReview'=>$result->requiresReview,'replayed'=>$result->replayed],
                 $result instanceof KsefStatus => ['outcome'=>$result->outcome,'requiresReview'=>$result->requiresReview],
                 $result instanceof OrderReceipt => ['outcome'=>'received','replayed'=>$result->replayed],
                 $result instanceof IssuedInvoice => ['outcome'=>'issued','replayed'=>$result->replayed],

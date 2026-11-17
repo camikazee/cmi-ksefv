@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — 2026-11-15 — KSV-REQ-09 w toku
+
+- Opcjonalny Idempotency-Key w sendToKsef, capability readiness i trwały
+  submissionId/replayed bez zmiany dotychczasowych argumentów. Żądanie z kluczem
+  wymaga jawnego potwierdzenia nowego backendu; starszy202 nie udaje idempotencji.
+- SDK nie generuje nowych kluczy przy retry ani nie ponawia automatycznie send.
+  Targeted backend33/195PASS; SDK85/279PASS PHP8.5.12. Końcowe PHP8.3/fullgate
+  i odbiór lokalnej instancji pozostają do potwierdzenia, bez produkcji/MF/pushu.
+
 ## 0.2.0 — 2026-11-15
 
 Wymaga KSeFV z commitem `0b6796c` (whoami, słownik metod płatności, kody
