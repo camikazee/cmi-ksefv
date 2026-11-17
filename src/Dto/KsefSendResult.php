@@ -11,6 +11,8 @@ final readonly class KsefSendResult
         public string $outcome,
         public bool $alreadySubmitted,
         public bool $requiresReview,
+        public ?string $submissionId = null,
+        public bool $replayed = false,
     ) {
     }
 }

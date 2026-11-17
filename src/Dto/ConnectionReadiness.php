@@ -17,6 +17,7 @@ final readonly class ConnectionReadiness
         public bool $apiPlanActive,
         public bool $ordersEnabled,
         public bool $orderIssueEnabled,
+        public bool $ksefSendIdempotency = false,
     ) {
     }
 
